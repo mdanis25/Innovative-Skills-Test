@@ -1,8 +1,13 @@
 # serializers.py
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model 
+from django.utils import timezone
 from accounts.models import OtpToken  
-from products.models import Product
+from products.models import Product 
+from purchase.models import Purchase 
+from installments.models import Installment 
+
+
 
 User = get_user_model()
 
@@ -39,9 +44,8 @@ class EmailVerifySerializer(serializers.Serializer):
 class ProductSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
-        fields = ['name', 'description', 'price', 'stock', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at'] 
-        
+        fields = ['id', 'name', 'description', 'price', 'stock', 'created_at', 'updated_at']
+    
         def validate_price(self, value):
             if value <= 0:
                 raise serializers.ValidationError("Price must be a positive number.")
@@ -55,3 +59,51 @@ class ProductSerializer(serializers.ModelSerializer):
             if not value:
                 raise serializers.ValidationError("Name cannot be empty.")
             return value
+        
+        
+        
+        
+# ============================================================
+                    # Purchase Serializer
+# ============================================================
+class PurchaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Purchase
+        fields = ['purchase_id', 'user', 'product', 'quantity', 'total_price', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['purchase_id', 'created_at', 'updated_at', 'total_price']
+        
+    def validate_quantity(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Quantity must be a positive number.")
+        return value 
+    
+    
+    
+
+# ============================================================
+                    # installments Serializer
+# ============================================================    
+class InstallmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Installment
+        fields = ['id', 'purchase', 'paid_amount', 'payment_date', 'due_date', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'created_at', 'updated_at']
+        
+    def validate_paid_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Paid amount must be a positive number.")
+        return value
+    def validate_due_date(self, value): 
+        if value <= timezone.now():
+            raise serializers.ValidationError("Due date must be in the future.")
+        return value
+
+    def validate(self, attrs):
+        purchase = attrs.get('purchase')
+        paid_amount = attrs.get('paid_amount')
+        
+        if purchase.total_price < paid_amount:
+            raise serializers.ValidationError("Paid amount cannot exceed total price.")
+        
+        return attrs
+     
